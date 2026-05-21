@@ -28,13 +28,13 @@ resource "aws_cloudwatch_dashboard" "main" {
         type = "metric"
         properties = {
           metrics = [
-            ["AWS/ECS", "CPUUtilization", { stat = "Average" }],
-            [".", "MemoryUtilization", { stat = "Average" }]
+            ["AWS/EKS", "cluster_node_count", { stat = "Average" }],
+            [".", "pod_cpu_utilization", { stat = "Average" }]
           ]
           period = 300
           stat   = "Average"
           region = var.aws_region
-          title  = "ECS Cluster Resources"
+          title  = "EKS Cluster Resources"
         }
       },
       {
@@ -87,7 +87,7 @@ resource "aws_cloudwatch_dashboard" "main" {
 # CloudWatch Log Metric Filters
 resource "aws_cloudwatch_log_metric_filter" "error_count" {
   name           = "${var.project_name}-${var.environment}-error-count"
-  log_group_name = "/aws/ecs/${var.project_name}/${var.environment}/*"
+  log_group_name = "/aws/eks/${var.project_name}-${var.environment}-cluster/cluster"
   pattern        = "[ERROR]"
 
   metric_transformation {

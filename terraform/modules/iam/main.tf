@@ -1,8 +1,8 @@
 # Module IAM - Gestion des identités et accès (Principe du moindre privilège)
 
-# Rôle pour ECS Task Execution
-resource "aws_iam_role" "ecs_task_execution" {
-  name = "${var.project_name}-${var.environment}-ecs-task-execution-role"
+# Rôle pour EKS Cluster
+resource "aws_iam_role" "eks_cluster" {
+  name = "${var.project_name}-${var.environment}-eks-cluster-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -11,26 +11,63 @@ resource "aws_iam_role" "ecs_task_execution" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = "ecs-tasks.amazonaws.com"
+          Service = "eks.amazonaws.com"
         }
       }
     ]
   })
 
   tags = {
-    Name = "${var.project_name}-${var.environment}-ecs-task-execution-role"
+    Name = "${var.project_name}-${var.environment}-eks-cluster-role"
   }
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
-  role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
+  role       = aws_iam_role.eks_cluster.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+# Rôle pour EKS Node Group
+resource "aws_iam_role" "eks_node" {
+  name = "${var.project_name}-${var.environment}-eks-node-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-eks-node-role"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
+  role       = aws_iam_role.eks_node.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
+  role       = aws_iam_role.eks_node.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+}
+
+resource "aws_iam_role_policy_attachment" "eks_ecr_read_only" {
+  role       = aws_iam_role.eks_node.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
 # Politique pour accès aux secrets (Secrets Manager)
-resource "aws_iam_role_policy" "ecs_secrets_access" {
-  name = "${var.project_name}-${var.environment}-ecs-secrets-policy"
-  role = aws_iam_role.ecs_task_execution.id
+resource "aws_iam_role_policy" "eks_secrets_access" {
+  name = "${var.project_name}-${var.environment}-eks-secrets-policy"
+  role = aws_iam_role.eks_node.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -50,32 +87,10 @@ resource "aws_iam_role_policy" "ecs_secrets_access" {
   })
 }
 
-# Rôle pour ECS Task (runtime)
-resource "aws_iam_role" "ecs_task" {
-  name = "${var.project_name}-${var.environment}-ecs-task-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${var.project_name}-${var.environment}-ecs-task-role"
-  }
-}
-
 # Politique pour accès S3 (logs, backups)
-resource "aws_iam_role_policy" "ecs_s3_access" {
-  name = "${var.project_name}-${var.environment}-ecs-s3-policy"
-  role = aws_iam_role.ecs_task.id
+resource "aws_iam_role_policy" "eks_s3_access" {
+  name = "${var.project_name}-${var.environment}-eks-s3-policy"
+  role = aws_iam_role.eks_node.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -96,26 +111,6 @@ resource "aws_iam_role_policy" "ecs_s3_access" {
   })
 }
 
-# Politique pour accès CloudWatch Logs
-resource "aws_iam_role_policy" "ecs_cloudwatch_logs" {
-  name = "${var.project_name}-${var.environment}-ecs-cloudwatch-policy"
-  role = aws_iam_role.ecs_task.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "arn:aws:logs:${var.aws_region}:*:log-group:/aws/ecs/${var.project_name}/*"
-      }
-    ]
-  })
-}
 
 # Rôle pour développeurs (accès limité)
 resource "aws_iam_role" "developer" {
@@ -154,9 +149,9 @@ resource "aws_iam_role_policy" "developer" {
       {
         Effect = "Allow"
         Action = [
-          "ecs:DescribeServices",
-          "ecs:DescribeTasks",
-          "ecs:ListTasks",
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:ListNodegroups",
           "logs:GetLogEvents",
           "logs:FilterLogEvents",
           "cloudwatch:GetMetricStatistics",
@@ -167,8 +162,8 @@ resource "aws_iam_role_policy" "developer" {
       {
         Effect = "Deny"
         Action = [
-          "ecs:UpdateService",
-          "ecs:DeleteService",
+          "eks:UpdateClusterConfig",
+          "eks:DeleteCluster",
           "rds:DeleteDBInstance",
           "rds:ModifyDBInstance"
         ]
@@ -258,10 +253,7 @@ resource "aws_iam_role_policy" "github_actions" {
           "ecr:InitiateLayerUpload",
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
-          "ecs:UpdateService",
-          "ecs:DescribeServices",
-          "ecs:RegisterTaskDefinition",
-          "ecs:DescribeTaskDefinition",
+          "eks:DescribeCluster",
           "iam:PassRole"
         ]
         Resource = "*"
@@ -286,12 +278,12 @@ resource "aws_iam_account_password_policy" "strict" {
 data "aws_caller_identity" "current" {}
 
 # Outputs
-output "ecs_task_execution_role_arn" {
-  value = aws_iam_role.ecs_task_execution.arn
+output "eks_cluster_role_arn" {
+  value = aws_iam_role.eks_cluster.arn
 }
 
-output "ecs_task_role_arn" {
-  value = aws_iam_role.ecs_task.arn
+output "eks_node_role_arn" {
+  value = aws_iam_role.eks_node.arn
 }
 
 output "developer_role_arn" {

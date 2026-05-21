@@ -111,12 +111,6 @@ Infrastructure AWS pour le projet DIGITRANS-CM déployée avec Terraform.
 - **ALB** : Load balancing avec HTTPS
 - **ECR** : Registre Docker privé
 
-### Base de données
-- **RDS PostgreSQL 15** : Multi-AZ
-- **3 instances** : erp_db, crm_db, supplychain_db
-- **Backups** : Rétention 30 jours
-- **Encryption** : KMS au repos, TLS en transit
-
 ### Cache
 - **ElastiCache Redis 7** : Multi-AZ
 - **Réplication** : 2 nœuds
@@ -174,12 +168,6 @@ aws dynamodb create-table \
 ### 4. Créer les secrets
 
 ```bash
-# Créer les credentials DB
-aws secretsmanager create-secret \
-  --name digitrans-cm/prod/db-master-password \
-  --secret-string "VotreMotDePasseSecurise123!" \
-  --region af-south-1
-
 # Créer les external IDs pour IAM
 aws secretsmanager create-secret \
   --name digitrans-cm/prod/developer-external-id \
@@ -278,7 +266,7 @@ Le pipeline CI/CD s'exécute automatiquement sur :
 | Service | Configuration | Coût estimé |
 |---------|--------------|-------------|
 | ECS Fargate | 8 tasks (0.5 vCPU, 1GB) | ~$50 |
-| RDS PostgreSQL | 3x db.t3.large Multi-AZ | ~$400 |
+
 | ElastiCache Redis | cache.t3.medium Multi-AZ | ~$100 |
 | ALB | 1 ALB + data transfer | ~$30 |
 | NAT Gateway | 2 NAT + data transfer | ~$90 |
@@ -289,7 +277,6 @@ Le pipeline CI/CD s'exécute automatiquement sur :
 ### Optimisations
 
 - **Auto Scaling** : Réduction automatique en heures creuses
-- **Reserved Instances** : -40% sur RDS (engagement 1 an)
 - **S3 Lifecycle** : Archivage automatique vers Glacier
 - **CloudWatch Logs** : Rétention limitée à 30 jours
 
@@ -312,24 +299,6 @@ Le pipeline CI/CD s'exécute automatiquement sur :
 
 ## Maintenance
 
-### Backups
-
-```bash
-# Lister les snapshots RDS
-aws rds describe-db-snapshots \
-  --db-instance-identifier digitrans-cm-prod-erp-db
-
-# Restaurer depuis un snapshot
-terraform import aws_db_instance.erp digitrans-cm-prod-erp-db
-```
-
-### Rotation des secrets
-
-```bash
-# Forcer la rotation
-aws secretsmanager rotate-secret \
-  --secret-id digitrans-cm/prod/db-credentials
-```
 
 ### Mise à jour
 

@@ -75,8 +75,8 @@ module "compute" {
   private_app_subnet_ids       = module.vpc.private_app_subnet_ids
   alb_security_group_id        = module.security.alb_security_group_id
   ecs_tasks_security_group_id  = module.security.ecs_tasks_security_group_id
-  ecs_task_execution_role_arn  = module.iam.ecs_task_execution_role_arn
-  ecs_task_role_arn            = module.iam.ecs_task_role_arn
+  eks_cluster_role_arn         = module.iam.eks_cluster_role_arn
+  eks_node_role_arn            = module.iam.eks_node_role_arn
   kms_key_arn                  = module.security.kms_key_arn
   alb_logs_bucket              = module.storage.alb_logs_bucket
   acm_certificate_arn          = var.acm_certificate_arn
@@ -102,19 +102,14 @@ output "vpc_id" {
   value       = module.vpc.vpc_id
 }
 
-output "alb_dns_name" {
-  description = "Application Load Balancer DNS name"
-  value       = module.compute.alb_dns_name
+output "eks_cluster_name" {
+  description = "EKS Cluster Name"
+  value       = module.compute.eks_cluster_name
 }
 
-output "ecr_repository_urls" {
-  description = "ECR repository URLs"
-  value       = module.compute.ecr_repository_urls
-}
-
-output "ecs_cluster_id" {
-  description = "ECS Cluster ID"
-  value       = module.compute.ecs_cluster_id
+output "eks_cluster_endpoint" {
+  description = "EKS Cluster Endpoint"
+  value       = module.compute.eks_cluster_endpoint
 }
 
 output "redis_endpoint" {
