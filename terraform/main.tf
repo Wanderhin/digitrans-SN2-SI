@@ -1,5 +1,5 @@
 # Infrastructure Hybride AWS pour DIGITRANS-CM
-# Région: af-south-1 (Cape Town) - Souveraineté des données africaines
+# Région: eu-north-1 (Stockholm) - Free Tier 
 
 terraform {
   required_version = ">= 1.5.0"
@@ -14,7 +14,7 @@ terraform {
   backend "s3" {
     bucket         = "digitrans-terraform-state"
     key            = "prod/terraform.tfstate"
-    region         = "af-south-1"
+    region         = "eu-north-1"
     encrypt        = true
     dynamodb_table = "terraform-state-lock"
   }

@@ -11,8 +11,8 @@ on:
       - develop
 
 env:
-  AWS_REGION: af-south-1
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.af-south-1.amazonaws.com
+  AWS_REGION: eu-north-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com
   PROJECT_NAME: digitrans-cm
 
 permissions:

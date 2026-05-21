@@ -2,9 +2,9 @@
 
 # AWS Configuration
 variable "aws_region" {
-  description = "AWS Region - Cape Town pour souveraineté africaine"
+  description = "AWS Region - eu-north-1 (Stockholm) - Free Tier"
   type        = string
-  default     = "af-south-1"
+  default     = "eu-north-1"
 }
 
 variable "aws_account_id" {
