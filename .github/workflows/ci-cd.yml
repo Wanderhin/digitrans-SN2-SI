@@ -18,6 +18,7 @@ env:
 permissions:
   id-token: write
   contents: read
+  security-events: write
 
 jobs:
   # Job 1: Tests et Build
@@ -27,7 +28,7 @@ jobs:
     
     strategy:
       matrix:
-        service: [erp-service, crm-service, supply-chain-service, bi-service]
+        service: [erp-service, crm-service, supply-chain-service, bi-service, blockchain-service]
     
     steps:
       - name: Checkout code
@@ -41,16 +42,26 @@ jobs:
           cache: maven
 
       - name: Build with Maven
+        if: matrix.service != 'blockchain-service'
         run: |
           cd ${{ matrix.service }}
           mvn clean package -DskipTests
 
+      - name: Build with npm
+        if: matrix.service == 'blockchain-service'
+        run: |
+          cd ${{ matrix.service }}
+          npm install
+          npx hardhat compile
+
       - name: Run tests
+        if: matrix.service != 'blockchain-service'
         run: |
           cd ${{ matrix.service }}
           mvn test
 
-      - name: Upload artifact
+      - name: Upload artifact (Java)
+        if: matrix.service != 'blockchain-service'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.service }}-jar
@@ -65,7 +76,7 @@ jobs:
     
     strategy:
       matrix:
-        service: [erp-service, crm-service, supply-chain-service, bi-service]
+        service: [erp-service, crm-service, supply-chain-service, bi-service, blockchain-service]
     
     steps:
       - name: Checkout code
@@ -80,7 +91,7 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
 
@@ -93,13 +104,14 @@ jobs:
     
     strategy:
       matrix:
-        service: [erp-service, crm-service, supply-chain-service, bi-service]
+        service: [erp-service, crm-service, supply-chain-service, bi-service, blockchain-service]
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Download artifact
+        if: matrix.service != 'blockchain-service'
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.service }}-jar
@@ -156,7 +168,7 @@ jobs:
     
     strategy:
       matrix:
-        service: [erp-service, crm-service, supply-chain-service, bi-service]
+        service: [erp-service, crm-service, supply-chain-service, bi-service, blockchain-service]
     
     steps:
       - name: Checkout code

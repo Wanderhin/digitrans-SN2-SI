@@ -16,7 +16,7 @@ resource "aws_ecs_cluster" "main" {
 
 # CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "ecs" {
-  for_each = toset(["erp", "crm", "supply-chain", "bi"])
+  for_each = toset(["erp", "crm", "supply-chain", "bi", "blockchain"])
 
   name              = "/aws/ecs/${var.project_name}/${var.environment}/${each.key}"
   retention_in_days = 30
@@ -30,7 +30,7 @@ resource "aws_cloudwatch_log_group" "ecs" {
 
 # ECR Repositories
 resource "aws_ecr_repository" "services" {
-  for_each = toset(["erp-service", "crm-service", "supply-chain-service", "bi-service"])
+  for_each = toset(["erp-service", "crm-service", "supply-chain-service", "bi-service", "blockchain-service"])
 
   name                 = "${var.project_name}/${each.key}"
   image_tag_mutability = "MUTABLE"
@@ -117,6 +117,7 @@ resource "aws_lb_target_group" "services" {
     crm          = 8082
     supply-chain = 8083
     bi           = 8084
+    blockchain   = 8545
   }
 
   name        = "${var.project_name}-${var.environment}-${each.key}-tg"
@@ -131,7 +132,7 @@ resource "aws_lb_target_group" "services" {
     unhealthy_threshold = 3
     timeout             = 5
     interval            = 30
-    path                = "/actuator/health"
+    path                = each.key == "blockchain" ? "/" : "/actuator/health"
     matcher             = "200"
   }
 
@@ -238,6 +239,22 @@ resource "aws_lb_listener_rule" "bi" {
   condition {
     path_pattern {
       values = ["/api/dashboard*"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "blockchain" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 500
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.services["blockchain"].arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/rpc"]
     }
   }
 }

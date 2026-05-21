@@ -88,25 +88,6 @@ variable "devops_external_id" {
   sensitive   = true
 }
 
-# VPN Configuration
-variable "vpn_tunnel1_preshared_key" {
-  description = "VPN Tunnel 1 pre-shared key"
-  type        = string
-  sensitive   = true
-}
-
-variable "vpn_tunnel2_preshared_key" {
-  description = "VPN Tunnel 2 pre-shared key"
-  type        = string
-  sensitive   = true
-}
-
-# Redis Configuration
-variable "redis_auth_token" {
-  description = "Redis authentication token"
-  type        = string
-  sensitive   = true
-}
 
 # ACM Configuration
 variable "acm_certificate_arn" {
@@ -114,17 +95,6 @@ variable "acm_certificate_arn" {
   type        = string
 }
 
-# KMS Configuration
-variable "kms_key_arn" {
-  description = "KMS key ARN for encryption"
-  type        = string
-}
-
-# SNS Configuration
-variable "sns_topic_arn" {
-  description = "SNS topic ARN for alerts"
-  type        = string
-}
 
 # Monitoring Configuration
 variable "alert_email" {
