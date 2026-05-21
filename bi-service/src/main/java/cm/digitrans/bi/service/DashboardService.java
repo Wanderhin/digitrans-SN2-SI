@@ -4,6 +4,7 @@ import cm.digitrans.bi.dto.DashboardSummary;
 import cm.digitrans.bi.dto.OrdersByCity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -84,7 +85,7 @@ public class DashboardService {
                 .uri(crmServiceUrl + "/api/customers")
                 .header("Authorization", "Bearer " + token)
                 .retrieve()
-                .bodyToFlux(Map.class)
+                .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {})
                 .collectList()
                 .block();
 
@@ -92,7 +93,7 @@ public class DashboardService {
                 .uri(crmServiceUrl + "/api/orders")
                 .header("Authorization", "Bearer " + token)
                 .retrieve()
-                .bodyToFlux(Map.class)
+                .bodyToFlux(new ParameterizedTypeReference<Map<String, Object>>() {})
                 .collectList()
                 .block();
 
