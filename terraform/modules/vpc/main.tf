@@ -47,18 +47,6 @@ resource "aws_subnet" "private_app" {
   }
 }
 
-# Sous-réseaux privés (Bases de données) - 2 AZ
-resource "aws_subnet" "private_db" {
-  count             = 2
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 20)
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-
-  tags = {
-    Name = "${var.project_name}-${var.environment}-private-db-${count.index + 1}"
-    Tier = "Database"
-  }
-}
 
 # NAT Gateway pour accès sortant depuis sous-réseaux privés
 resource "aws_eip" "nat" {
@@ -123,11 +111,6 @@ resource "aws_route_table_association" "private_app" {
   route_table_id = aws_route_table.private[count.index].id
 }
 
-resource "aws_route_table_association" "private_db" {
-  count          = 2
-  subnet_id      = aws_subnet.private_db[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
-}
 
 # VPC Flow Logs pour audit et sécurité
 resource "aws_flow_log" "main" {
@@ -207,9 +190,6 @@ output "private_app_subnet_ids" {
   value = aws_subnet.private_app[*].id
 }
 
-output "private_db_subnet_ids" {
-  value = aws_subnet.private_db[*].id
-}
 
 output "nat_gateway_ips" {
   value = aws_eip.nat[*].public_ip

@@ -293,20 +293,7 @@ resource "aws_ecs_task_definition" "erp" {
         }
       ]
 
-      secrets = [
-        {
-          name      = "SPRING_DATASOURCE_URL"
-          valueFrom = "${var.db_credentials_secret_arn}:erp_endpoint::"
-        },
-        {
-          name      = "SPRING_DATASOURCE_USERNAME"
-          valueFrom = "${var.db_credentials_secret_arn}:username::"
-        },
-        {
-          name      = "SPRING_DATASOURCE_PASSWORD"
-          valueFrom = "${var.db_credentials_secret_arn}:password::"
-        }
-      ]
+
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -459,9 +446,7 @@ variable "kms_key_arn" {
   type = string
 }
 
-variable "db_credentials_secret_arn" {
-  type = string
-}
+
 
 variable "alb_logs_bucket" {
   type = string

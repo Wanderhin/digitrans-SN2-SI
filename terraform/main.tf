@@ -58,17 +58,7 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-variable "db_username" {
-  description = "Database master username"
-  type        = string
-  sensitive   = true
-}
 
-variable "db_password" {
-  description = "Database master password"
-  type        = string
-  sensitive   = true
-}
 
 variable "allowed_ip_ranges" {
   description = "IP ranges autorisées (Cameroun)"

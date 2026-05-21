@@ -132,7 +132,6 @@ variable "service_budgets" {
   description = "Budgets par service AWS (total: 100$)"
   default = {
     "Amazon Elastic Compute Cloud - Compute" = "30"
-    "Amazon Relational Database Service"      = "35"
     "Amazon ElastiCache"                     = "15"
     "Amazon Simple Storage Service"          = "5"
     "Amazon CloudWatch"                      = "5"

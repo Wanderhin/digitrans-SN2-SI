@@ -16,8 +16,6 @@ on_premise_ip_ranges = [
   "196.168.1.0/24"
 ]
 
-# Database (instances plus petites en test)
-db_instance_class = "db.t3.medium"
 
 # GitHub
 github_repo = "CAMTECH-SOLUTIONS/digitrans-cm"

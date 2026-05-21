@@ -56,24 +56,7 @@ variable "on_premise_cidr" {
   default     = "192.168.0.0/16"
 }
 
-# Database Configuration
-variable "db_username" {
-  description = "Database master username"
-  type        = string
-  sensitive   = true
-}
 
-variable "db_password" {
-  description = "Database master password"
-  type        = string
-  sensitive   = true
-}
-
-variable "db_instance_class" {
-  description = "RDS instance class"
-  type        = string
-  default     = "db.t3.medium"
-}
 
 # Security Configuration
 variable "developer_external_id" {
@@ -135,7 +118,6 @@ variable "service_budgets" {
   type        = map(string)
   default = {
     "Amazon Elastic Compute Cloud - Compute" = "30"
-    "Amazon Relational Database Service"      = "35"
     "Amazon ElastiCache"                     = "15"
     "Amazon Simple Storage Service"          = "5"
     "Amazon CloudWatch"                      = "5"

@@ -18,9 +18,6 @@ on_premise_ip_ranges = [
   "196.168.1.0/24"    # Datacenter AGROCAM Douala
 ]
 
-# Database (instances robustes en prod)
-db_instance_class = "db.t3.large"
-
 # GitHub
 github_repo = "CAMTECH-SOLUTIONS/digitrans-cm"
 
@@ -30,10 +27,3 @@ acm_certificate_arn = "arn:aws:acm:af-south-1:ACCOUNT_ID:certificate/CERTIFICATE
 # Monitoring
 alert_email = "devops@agrocam.cm"
 
-# Secrets (DOIT être chargé depuis AWS Secrets Manager)
-# db_username et db_password NE DOIVENT JAMAIS être en clair dans les fichiers
-# Utiliser la commande suivante pour créer les secrets :
-# aws secretsmanager create-secret \
-#   --name digitrans-cm/prod/db-credentials \
-#   --secret-string '{"username":"postgres","password":"VotreMotDePasseSecurise123!"}' \
-#   --region af-south-1

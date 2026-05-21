@@ -50,22 +50,7 @@ module "storage" {
   depends_on = [module.vpc, module.security]
 }
 
-# Module Database
-module "database" {
-  source = "./modules/database"
 
-  project_name           = var.project_name
-  environment            = var.environment
-  private_db_subnet_ids  = module.vpc.private_db_subnet_ids
-  rds_security_group_id  = module.security.rds_security_group_id
-  kms_key_arn            = module.security.kms_key_arn
-  db_username            = var.db_username
-  db_password            = var.db_password
-  db_instance_class      = var.db_instance_class
-  sns_topic_arn          = module.monitoring.sns_topic_arn
-
-  depends_on = [module.vpc, module.security, module.monitoring]
-}
 
 # Module Monitoring
 module "monitoring" {
@@ -93,11 +78,10 @@ module "compute" {
   ecs_task_execution_role_arn  = module.iam.ecs_task_execution_role_arn
   ecs_task_role_arn            = module.iam.ecs_task_role_arn
   kms_key_arn                  = module.security.kms_key_arn
-  db_credentials_secret_arn    = module.database.db_credentials_secret_arn
   alb_logs_bucket              = module.storage.alb_logs_bucket
   acm_certificate_arn          = var.acm_certificate_arn
 
-  depends_on = [module.vpc, module.security, module.iam, module.database, module.storage]
+  depends_on = [module.vpc, module.security, module.iam, module.storage]
 }
 
 # Module Budget (Gestion des coûts)
@@ -109,7 +93,7 @@ module "budget" {
   alert_email     = var.alert_email
   monthly_budget_limit = "100"
 
-  depends_on = [module.vpc, module.security, module.iam, module.database, module.storage, module.compute]
+  depends_on = [module.vpc, module.security, module.iam, module.storage, module.compute]
 }
 
 # Outputs
