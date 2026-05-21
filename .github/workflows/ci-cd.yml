@@ -1,0 +1,279 @@
+name: CI/CD Pipeline - DIGITRANS-CM
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+    branches:
+      - master
+      - develop
+
+env:
+  AWS_REGION: af-south-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.af-south-1.amazonaws.com
+  PROJECT_NAME: digitrans-cm
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # Job 1: Tests et Build
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        service: [erp-service, crm-service, supply-chain-service, bi-service]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build with Maven
+        run: |
+          cd ${{ matrix.service }}
+          mvn clean package -DskipTests
+
+      - name: Run tests
+        run: |
+          cd ${{ matrix.service }}
+          mvn test
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-jar
+          path: ${{ matrix.service }}/target/*.jar
+          retention-days: 1
+
+  # Job 2: Security Scan
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    strategy:
+      matrix:
+        service: [erp-service, crm-service, supply-chain-service, bi-service]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '${{ matrix.service }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Job 3: Build and Push Docker Images
+  docker-build-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
+    
+    strategy:
+      matrix:
+        service: [erp-service, crm-service, supply-chain-service, bi-service]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.service }}-jar
+          path: ${{ matrix.service }}/target
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_OUTPUT
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Docker image
+        run: |
+          cd ${{ matrix.service }}
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }} .
+          docker tag ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }} \
+                     ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:latest
+
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:latest
+
+      - name: Image digest
+        run: |
+          echo "Image pushed: ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }}"
+
+  # Job 4: Deploy to ECS
+  deploy-ecs:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: docker-build-push
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
+    
+    strategy:
+      matrix:
+        service: [erp-service, crm-service, supply-chain-service, bi-service]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_OUTPUT
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.PROJECT_NAME }}-${{ steps.set-env.outputs.ENVIRONMENT }}-${{ matrix.service }} \
+            --query taskDefinition > task-definition.json
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ matrix.service }}
+          image: ${{ env.ECR_REGISTRY }}/${{ env.PROJECT_NAME }}/${{ matrix.service }}:${{ github.sha }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.PROJECT_NAME }}-${{ steps.set-env.outputs.ENVIRONMENT }}-${{ matrix.service }}
+          cluster: ${{ env.PROJECT_NAME }}-${{ steps.set-env.outputs.ENVIRONMENT }}-cluster
+          wait-for-service-stability: true
+
+      - name: Verify deployment
+        run: |
+          aws ecs describe-services \
+            --cluster ${{ env.PROJECT_NAME }}-${{ steps.set-env.outputs.ENVIRONMENT }}-cluster \
+            --services ${{ env.PROJECT_NAME }}-${{ steps.set-env.outputs.ENVIRONMENT }}-${{ matrix.service }} \
+            --query 'services[0].deployments[0].status'
+
+  # Job 5: Run Integration Tests
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: deploy-ecs
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_OUTPUT
+          else
+            echo "ENVIRONMENT=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get ALB DNS
+        id: get-alb
+        run: |
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names ${{ env.PROJECT_NAME }}-${{ steps.set-env.outputs.ENVIRONMENT }}-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)
+          echo "ALB_DNS=$ALB_DNS" >> $GITHUB_OUTPUT
+
+      - name: Wait for services to be healthy
+        run: |
+          sleep 60
+
+      - name: Test ERP Service
+        run: |
+          curl -f https://${{ steps.get-alb.outputs.ALB_DNS }}/api/employees || exit 1
+
+      - name: Test CRM Service
+        run: |
+          curl -f https://${{ steps.get-alb.outputs.ALB_DNS }}/api/customers || exit 1
+
+      - name: Test Supply Chain Service
+        run: |
+          curl -f https://${{ steps.get-alb.outputs.ALB_DNS }}/api/products || exit 1
+
+      - name: Test BI Service
+        run: |
+          curl -f https://${{ steps.get-alb.outputs.ALB_DNS }}/api/dashboard/summary || exit 1
+
+  # Job 6: Notify
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-ecs, integration-tests]
+    if: always()
+    
+    steps:
+      - name: Send notification
+        run: |
+          if [[ "${{ needs.integration-tests.result }}" == "success" ]]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi
