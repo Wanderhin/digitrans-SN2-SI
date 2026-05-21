@@ -205,46 +205,14 @@ resource "aws_iam_role_policy_attachment" "devops_admin" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-# Fournisseur d'identité OIDC pour GitHub Actions
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"] # Empreinte officielle de GitHub
+# Utilisateur IAM pour CI/CD existant (gremmy)
+data "aws_iam_user" "github_actions" {
+  user_name = "gremmy"
 }
 
-# Rôle pour CI/CD (GitHub Actions)
-resource "aws_iam_role" "github_actions" {
-  name = "${var.project_name}-${var.environment}-github-actions-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Effect = "Allow"
-        Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
-        }
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-          StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
-          }
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${var.project_name}-${var.environment}-github-actions-role"
-  }
-}
-
-resource "aws_iam_role_policy" "github_actions" {
+resource "aws_iam_user_policy" "github_actions" {
   name = "${var.project_name}-${var.environment}-github-actions-policy"
-  role = aws_iam_role.github_actions.id
+  user = data.aws_iam_user.github_actions.user_name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -301,8 +269,8 @@ output "devops_role_arn" {
   value = aws_iam_role.devops.arn
 }
 
-output "github_actions_role_arn" {
-  value = aws_iam_role.github_actions.arn
+output "github_actions_user_name" {
+  value = data.aws_iam_user.github_actions.user_name
 }
 
 # Variables

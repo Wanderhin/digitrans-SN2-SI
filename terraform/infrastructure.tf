@@ -118,9 +118,9 @@ output "redis_endpoint" {
   sensitive   = true
 }
 
-output "github_actions_role_arn" {
-  description = "GitHub Actions IAM Role ARN"
-  value       = module.iam.github_actions_role_arn
+output "github_actions_user_name" {
+  description = "GitHub Actions IAM User Name"
+  value       = module.iam.github_actions_user_name
 }
 
 output "monthly_budget_name" {
